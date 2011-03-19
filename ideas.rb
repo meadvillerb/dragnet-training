@@ -25,10 +25,12 @@ class Page < Ohm::Model
   end
   
   def count_unique_blocks(element_name = nil)
-    self.blocks.inject(Hash.new { |hash, key| hash[key] = 0 }) do |count, block|
-      next count unless element_name.nil? || element_name == block.element
+    count = Hash.new { |hash, key| hash[key] = 0 }
+    self.blocks.each do |block|
+      next if !element_name.nil? && element_name != block.element
       count[block.element] += 1
     end
+    count
   end
 end
 
