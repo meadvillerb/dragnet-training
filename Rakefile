@@ -49,7 +49,6 @@ namespace :classify do
       p.blocks.each do |b|
         b.content_score = scorer.rate b.cleansed_content
         b.save
-        puts "#{b.pretty_name} => #{b.content_score}"
       end
     end
   end
