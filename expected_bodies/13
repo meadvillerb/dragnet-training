@@ -1,0 +1,177 @@
+Stomper 2.0.[3-5]
+
+  In working out the particulars of a failover extension to Stomper, I discovered a few subtle but frustrating bugs.  As a result, I pushed out 3 versions of the Stomper gem today.  This may be the greatest accomplishment of my life.
+At the risk of sounding crazy, I’ve replaced my toes with grapes.
+
+
+  Posted on March 08, 2011
+    1 comment
+    Tagged ruby, stomper, FTW!
+  
+
+	
+	
+	  Stomp 1.1
+
+  Every post I make to the stomp-spec group that isn’t a “+1” or “me, too!” is often followed up with a thought of “you’re a moron” about 10 minutes later.  I’m going to improve this situation by spending some time hashing out my thoughts here, and if they still look good a couple hours later, then I’ll post them.
+CONNECT and CONNECTED Header Issues
+STOMP 1.0 does not allow the octets ‘:’ and LF to appear in header names. It also does not allow the LF octet in a header value.  These conditions make sense, ‘:’ serves as a delimiter between a header name and its value, and LF serves as a delimiter between headers.  However, this means certain characters cannot be used within headers, and that can be a problem, for example, if you want to stuff a JSON encoded string into a header value.
+STOMP 1.1 rectifies this by specifying escape sequences for LF and ‘:’, ‘\n’ (two octets, not the single character \n) and ‘\c’ respectively.  Naturally, as we use ‘\’ as an escape sequence indicator, we need an escape sequence for literal ‘\’ octets, and thus have ‘\\’.
+The problem is that until the protocol version is fully negotiated, header escaping/unescaping may produce undesirable results.  That is where the CONNECT and CONNECTED frames come in to play.
+Scenario 1
+A client could send a CONNECT frame with escaped headers.  Eg:1
+2
+3
+4
+5
+6
+7
+
+  CONNECT
+login:DOMAIN\\me
+passcode:s6842FW!\c4284\\$
+some\cheader\cname:value\\of\nthe header
+accept-version:1.1
+
+^@
+
+The client has indicated that it will only accept a 1.1 connection and has used escaping appropriate for that version.  The server, however, does not know that the client will only accept version 1.1 until it has already read the escaped header from the stream.
+Scenario 2
+A client could send a CONNECT frame that accepts either version 1.0 or 1.1, and use only STOMP 1.0 compliant headers.  However, even before the server issues a CONNECTED frame, it already knows which version of the spec is going to be used.  The client, however, does not.  If the server decides on STOMP 1.1, and sends a CONNECTED frame to the client such as:1
+2
+3
+4
+5
+6
+
+  CONNECTED
+session:D\chostname-63348-1297283114292-4\c0
+some\cheader\cname:value\\of\nthe header
+version:1.1
+
+^@
+
+The server already knows we’re using STOMP 1.1, but the client will not figure that out until it reads the ‘version’ header.
+Resolutions
+Header processing of CONNECT frames by the server has to be deferred until ‘accept-version’ is read. If list of versions include 1.0, it would be bad form if the client escaped headers according to 1.1, so no unescaping need be done. However, if the client is only version 1.1, the server may have to unescape headers. Similarly, a client will have to defer processing of all headers of a received CONNECTED frame until ‘version’ is read. From the value given, the client can then unescape headers and values (1.1), or leave them untouched (1.0). In either case, the spec may benefit from an explicit statement regarding the treatment of CONNECT/CONNECTED headers.
+	Essentially follow Resolution 1, but require the first header of CONNECT to be ‘accept-version’ and the first header of CONNECTED to be ‘version’, this allows servers and clients to decide on the escaping rules to follow after reading the first header.
+	Require that CONNECT/CONNECTED frames follow STOMP 1.0 header rules, regardless of the desired protocol version (ie: no escape sequences get generated, no unescaping gets done, LF and ‘:’ are not allowed in header names, LF is not allowed in header values)
+Of these, Resolution 3 is the most appealing to me, because it doesn’t require me to do anything else.  Both Resolution 1 and Resolution 2 will require some changes, though both are obviously doable.  Resolution 1 doesn’t require any further changes to the spec, except perhaps a warning about deferring header decoding until you know what version is running.  Resolution 2 is only helpful because of how I process headers on the stream, and is probably just selfish.
+Found the following in the Protocol Negotiation section.
+
+The protocol that will be used for the rest of the session will be the highest protocol version that both the client and server have in common.
+
+All that really remains then is clarifying when the “rest of the session” begins (with the CONNECTED frame or after the CONNECTED frame.)
+
+
+  Posted on February 09, 2011
+    1 comment
+    Tagged stomp, ruby
+  
+
+	
+	
+	  Quirks of Array#each
+
+  I’m probably just late to the party, but at least with Ruby 1.8.7 and 1.9.2, there’s nothing special that has to be done for each of these examples to produce the same output:1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+
+  
+[ [1, 2, 3], [4, 5, 6], [7, 8, 9] ].each do |trip|
+  puts "#{trip[0]} / #{trip[1]} / #{trip[2]}"
+end
+
+[ [1, 2, 3], [4, 5, 6], [7, 8, 9] ].each do |a,b,c|
+  puts "#{a} / #{b} / #{c}"
+end
+
+[ [1, 2, 3], [4, 5, 6], [7, 8, 9] ].each do |(a,b,c)|
+  puts "#{a} / #{b} / #{c}"
+end
+
+I knew that wrapping the block parameters in parentheses worked when arrays were yielded to the block.  I did not realize that Ruby would automatically do this when presented with a block that takes multiple parameters.
+
+
+  Posted on February 01, 2011
+    3 comments
+    Tagged ruby
+  
+
+	
+	
+	  mathlib Found
+
+  Roughly 5-6 years ago, I made an effort to take Fractal rendering code I developed during college and refactor it into a general purpose Java library, mathlib.jar.  A hard drive failure and desktop replacement later, and I had assumed that code was lost.  In fact, I seem to recall a fight between my former wife and I over the matter, but at any rate, it appears I was wrong.
+I doubt this code is of much utility to anyone, even I probably won’t get much direct use out of it as I don’t do much with Java anymore.  However, there were some novel bits in there, and implementations of a number of non-trivial functions extended to f: ℂ -> ℂ.  At the very least, it will probably help with my work on implementing a Mandelbrot renderer in HTML5 using <canvas> and WebWorkers.
+
+
+  Posted on January 27, 2011
+    1 comment
+    Tagged java, fractals, mathematics
+  
+
+	
+	
+	  Mandelbrot Sets in Javascript
+
+  I’m a big fan of fractals.  From Lindenmayer Systems to variations on the Mandelbrot set, they all have a special place in a statistically self-similar region of my brain.  Archimedes can keep his circles, I’ll stick with the striking complexity of chaos.  Given this mild obsession, it should not come as surprise that one of the first applications I enjoy making when working with a new GUI environment is a fractal generator.  With the addition of Web Workers and programmatic drawing via <canvas> elements in modern JS implementations, I find the past repeating itself with affine self-similarity.
+I am currently writing the rendering code, relying on jQuery and the aforementioned recent javascript additions.  For those that do not share in my fractal-eroticism, what I produce can still be useful as an example of using Web Workers for semi-concurrent javascript code execution.
+
+
+  Posted on January 17, 2011
+    1 comment
+    Tagged javascript, fractals, mathematics
+  
+
+	
+	
+	  OpenSSL - Brief Notes
+
+  When setting up OpenSSL validation in Ruby, I ran into a few issues.  I’ll revisit this post later, but for my own memory, here’s the big one:
+Use the openssl command that matches the version that Ruby was built against.  This isn’t a big issue for the most part, but the c_rehash command which creates symlinks to certs based on a hash relies on different hashing techniques in OpenSSL 0.9.x and 1.x
+Also, migrating keys between openssl and Java’s keytool is a lot like having teeth pulled but without the novocaine and prescription pain killers afterward.
+Some links that were useful in this whole process:
+http://www.ibm.com/developerworks/linux/library/l-openssl.html
+	http://conshell.net/wiki/index.php/Keytool_to_OpenSSL_Conversion_tips
+	http://activemq.apache.org/how-do-i-use-ssl.html
+	https://github.com/ruby/ruby/blob/trunk/sample/openssl/echo_cli.rb
+	http://andyjeffries.co.uk/articles/x509-encrypted-authenticated-socket-ruby-client
+As anyone who has done any SSL work in Ruby knows, Ruby’s OpenSSL Docs suck, but as I am not doing anything to directly improve them, I suppose bitching is rather pointless.
+
+
+  Posted on January 14, 2011
+    1 comment
+    Tagged ruby, openssl
+  
+
+	
+	
+	  Helpful Steps to Eat an Evening
+
+  Why spend our free time doing things we enjoy when it could be better spent fighting with calculating machines?
+Update rubygems via gem update --system, only to discover after the fact that RubyGems 1.4 is not compatible with Ruby 1.9.×.
+	Uninstall all gems, all Ubuntu ruby packages and then rm -rf /usr/lib/ruby/ just for good measure.
+	Black out again, wake up in a car that is Tokyo drifting everywhere
+	Install RVM
+	Re-configure capistrano to use the RVM plugin
+	Get the first successful cap deploy of the evening, but we’re running the production site on a sqlite database.
+	Add gem 'pg' to the Gemfile
+	Fight with getting bundle to update Gemfile.lock until I remember to add the MacPorts’ postgres install directory to PATH and export ARCHFLAGS="-arch x86_64"
+	Re-cap deploy, Re-cap deploy:migrate.
+	Here we are.
+On the plus side, the newest version of Phusion Passenger runs with RVM like a god damned champ.
+
+
+  Posted on January 14, 2011
+    1 comment
+    Tagged ruby, rvm, ubuntu, os x, rubygems
