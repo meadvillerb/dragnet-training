@@ -32,7 +32,7 @@ namespace :show do
       puts "relev\t: #{p.relevant_blocks.size}"
       puts "-"*30
       p.relevant_blocks.each do |b|
-        puts "#{b.pretty_name} => '#{b.cleansed_content}'"
+        puts "#{b.pretty_name} => '#{b.content_score}'"
       end
       puts "-"*50
     end
@@ -45,20 +45,11 @@ namespace :classify do
     Page.all.each do |p|
       expected_file = File.expand_path("../expected_bodies/#{p.id}", __FILE__)
       next unless File.exists? expected_file
-      remaining_content = p.cleansed_content
-      expected_body = File.read(expected_file)
-      expected_body = expected_body.split(/\s+/).join(' ')
-      remaining_content = remaining_content.gsub(expected_body, '')
-      bayes = Classifier::Bayes.new 'relevant', 'irrelevant'
-      bayes.train :relevant, expected_body
-      bayes.train :irrelevant, remaining_content
+      scorer = ContentScore.new(File.read(expected_file))
       p.blocks.each do |b|
-        content = b.cleansed_content
-        b.classification = content.empty? ? 'Irrelevant' : bayes.classify(b.content)
+        b.content_score = scorer.rate b.cleansed_content
         b.save
-        puts "#{b.pretty_name} => #{b.classification}"
-        puts "#{b.cleansed_content}"
-        puts
+        puts "#{b.pretty_name} => #{b.content_score}"
       end
     end
   end

@@ -27,12 +27,14 @@ class Page < Ohm::Model
     end
   end
   
-  def relevant_blocks
-    @relevant_blocks ||= self.blocks.select { |b| b.classification == 'Relevant' }
+  def relevant_blocks(score=0.3)
+    @relevant_blocks ||= self.blocks.select do |b|
+      b.content_score.to_f >= score
+    end
   end
   
   def cleansed_content
-    Nokogiri::HTML(self.html).css('body').first.content.to_s.split(/\s+/).join(' ')
+    Nokogiri::HTML(self.html).css('body').first.content.to_s.split(/\s+/).join(' ').strip
   end
 end
 
@@ -42,6 +44,7 @@ class BlockContent < Ohm::Model
   attribute :class_name
   attribute :content
   attribute :classification
+  attribute :content_score
   
   def pretty_name
     name = "[#{self.id}] #{self.element}"
@@ -51,6 +54,18 @@ class BlockContent < Ohm::Model
   end
   
   def cleansed_content
-    self.content.to_s.split(/\s+/).join(' ')
+    self.content.to_s.split(/\s+/).join(' ').strip
+  end
+end
+
+class ContentScore
+  def initialize content
+    @content = content.split(/\s+/).join(' ').strip
+    @clength = @content.size * 1.0
+  end
+  
+  def rate other
+    inter = @content[other] || ''
+    inter.size / @clength
   end
 end
