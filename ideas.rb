@@ -25,9 +25,10 @@ class Page < Ohm::Model
   end
   
   def count_unique_blocks(element_name = nil)
-    count = Hash.new { |hash, key| hash[key] = 0 }
-    self.blocks.each { |block| count[block.element.to_sym] += 1 }
-    count
+    self.blocks.inject(Hash.new { |hash, key| hash[key] = 0 }) do |count, block|
+      next count unless element_name.nil? || element_name == block.element
+      count[block.element] += 1
+    end
   end
 end
 
@@ -43,4 +44,6 @@ class BlockContent < Ohm::Model
   index :content
 end
 
-count = count_unique_blocks(Page[1].blocks)
+count = Page[1].count_unique_blocks
+
+count2 = Page[1].count_unique_blocks('a')
